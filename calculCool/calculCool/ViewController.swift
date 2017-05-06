@@ -29,13 +29,15 @@ class ViewController: UIViewController {
 
 
     @IBAction func operation(_ sender: UIButton) {
-        mind.operation = sender.currentTitle
+        mind.operation(operation: sender.currentTitle)
     }
+    
     @IBAction func removeCalcul(_ sender: UIButton) {
         screen.text = String(0)
         mind = Mind()
         mind.delegate = self
     }
+    
 }
 
 

@@ -6,18 +6,28 @@
 //  Copyright © 2017 Apple. All rights reserved.
 //
 
+// 0. (!!!) комментарии в коде (!!!) либо код читается как английский язык (говорящие названия)
+// 1. избавиться от багов
+// 2. реализовать 2 публичных функции (для цифры и для операции)
+// 3. реализовать свойство для отображения текущего значения (результат типа String), с учетом десятичной точки и суффиксных нулей
+// 4. вынести перечень всех обрабатываемых операций в Dictionary<String, *YouType*>
+// 5. должен быть аккумулятор для значения
+// 6. должено быть optional значение для "запомненой" бинарной операции
+// 7. на этом этапе вычисление только по операции equal (=)
+// 8. в вью контроллере не пересоздавать майнд, никакой логики!!!! Даже очистка экрана 
+// 9. backspace
+
 import Foundation
 
 public extension Double {
     var smartValue: Double {
-        //if abs(1 - self) < 1e-10 {return 1}
         return abs(self) < 1e-10 ? 0.0 : self
     }
 }
 
-
-protocol canShowMyMind {
-    func result(_ result: Double)
+protocol canShowMyMind: class {
+    func result(_ result: Double) // rename to resultDidChanged
+    // accumulatorDidChanged(...)
 }
 
 struct Mind {
@@ -28,55 +38,67 @@ struct Mind {
         case equal
     }
     
-    private var tempOperation: Op?
+    private var tempOperation: Op? // лишнее, избавиться
     
-    private var insertOperation: Op?
-    {
+    var nextPosition = 1.0
+    
+    private var point = false { // бага с повторной точкой
         didSet{
-            guard insertOperation != nil else {return}
-            
-            switch insertOperation! {
-            case .binary:
-                guard value != nil else {return}
-                tempOperation = insertOperation
-                tempValue = value
-                point = false
-            case .unary(let f):
-                guard value != nil else {return}
-                result = f(value!)
-            case .equal:
-                guard tempOperation != nil, value != nil, tempValue != nil else {return}
-                switch tempOperation! {
-                case .binary(let f):
-                    result = f(tempValue!, value!)
-                default: break
+            if oldValue != true {
+                if isEnteredValue {
+                    nextPosition = point ? 1 / 10 : 1.0
                 }
-                tempOperation = nil
-                tempValue = nil
-            case .constant(let const): value = const
-                isEnteredValue = false
-                //point = false
             }
         }
     }
-    var nextPosition = 1.0
     
-    private var point = false{
-        didSet{
-            nextPosition = point ? 1/10 : 1.0
-        }
-    }
+    private var tempValue: Double? // назвать accumulator
     
-    private var tempValue: Double?
-    
-    var delegate: canShowMyMind!
+    weak var delegate: canShowMyMind!
     
     var isEnteredValue = false
     
-    var operation: String? {
-        didSet{
+    func insertOp(op: String) -> String? {
+     return nil
+    }
+    
+    mutating func operation(operation: String?) { // ты никогда не берешь это значение, почему не func?
+        if operation != "." {
             isEnteredValue = false
-            guard let myOperation = operation else {return}
+            point = false
+        }
+        guard let myOperation = operation else {return}
+        
+         var insertOperation: Op?
+        {
+            didSet{ // лишнее, збавиться (pending*Binary*Operation)
+                guard insertOperation != nil else {return}
+                
+                switch insertOperation! {
+                case .binary:
+                    guard value != nil else {return}
+                    tempOperation = insertOperation
+                    tempValue = value
+                    point = false
+                case .unary(let f):
+                    guard value != nil else {return}
+                    result = f(value!)
+                case .equal:
+                    guard tempOperation != nil, value != nil, tempValue != nil else {return}
+                    switch tempOperation! {
+                    case .binary(let f):
+                        result = f(tempValue!, value!)
+                    default: break
+                    }
+                    tempOperation = nil
+                    tempValue = nil
+                
+                case .constant(let const): value = const
+                    isEnteredValue = false
+                default: break
+                }
+            }
+        }
             
             switch myOperation {
             case "∞": insertOperation = Op.constant(Double.infinity)
@@ -92,11 +114,9 @@ struct Mind {
             case "/": insertOperation = Op.binary(/)
             case "=": insertOperation = Op.equal
             case "AC": value = 0
-            case ".": point = true
-                isEnteredValue = true
+            case ".": if isEnteredValue && point == false { point = true }
             default: break
             }
-        }
     }
     var result : Double? {
         
@@ -105,7 +125,9 @@ struct Mind {
             delegate?.result(result!)
             value = result
             isEnteredValue = false
-            insertOperation = nil
+            
+            tempOperation = nil
+            
             tempValue = nil
             point = false
         }
